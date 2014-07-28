@@ -70,6 +70,7 @@ def gather(value):
 
     done = len(g_n_left)
     print "Completed {:3.2f} %".format( (100.0*done)/g_rows )
+    sys.stdout.flush()
 
     return
 
