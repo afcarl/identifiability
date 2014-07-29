@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# script for evaluating the identifyability of rows in a csv
+# script for evaluating the identifiability of rows in a csv
 # 
 # @author: Jeff Lockhart <jlockhart@fordham.edu>
 
