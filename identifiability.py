@@ -230,7 +230,7 @@ def cols_appearing_together(results):
 
 def usage():
     print "This script requires 4 arguments:"
-    print "identifyability.py -n 4 -c 1 -i infile.csv -o outfile.txt"
+    print "identifiability.py -n 4 -c 1 -i infile.csv -o outfile.txt"
     print "\t-n\tNumber of processors to use"
     print "\t-c\tCutoff: maximum number of rows in a group (usually 1)"
     print "\t-i\tA csv file to evaluate. Do not include unique id's."
@@ -276,7 +276,7 @@ def main(argv):
     checkpoint = 100.0
     chunks = int(ceil(g_rows/checkpoint))
 
-    print 'Beginning identifyability checks...'
+    print 'Beginning identifiability checks...'
     for pid in range(1,chunks):
         pool.apply_async(batch_identify, args=(data, pid, chunks, g_rows, cutoff, ), callback=gather)
         
