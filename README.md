@@ -25,5 +25,5 @@ Example script calls:
 
 
 Known Issues:
-- The version of python pandas in the Fedora repos (currently python-pandas-0.10.0-3.fc20.x86_64) does not work with this script. Installing from the source tarball here works: <https://pypi.python.org/pypi/pandas>, however. 
+- The version of python pandas in the Fedora repos (currently python-pandas-0.10.X) does not work with this script (which uses features from version 0.14.X). Installing from the source tarball here works: <https://pypi.python.org/pypi/pandas>, however. 
 - Memory and CPU requirements of the script can be prohibitive for some data sets. Development is currently focused on reducing these.  
