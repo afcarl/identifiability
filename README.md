@@ -22,3 +22,8 @@ This project makes the following assumptions about input data:
 Example script calls:
 `python identifiability.py -n 4 -c 1 -i data.csv -o summary.txt`
 `python identifiability.py -h`
+
+
+Known Issues:
+- The version of python pandas in the Fedora repos (currently python-pandas-0.10.0-3.fc20.x86_64) does not work with this script. Installing from the source tarball here works: <https://pypi.python.org/pypi/pandas>, however. 
+- Memory and CPU requirements of the script can be prohibitive for some data sets. Development is currently focused on reducing these.  
