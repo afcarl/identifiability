@@ -24,11 +24,18 @@ def col_val_freq(df):
     freqs = {}
     
     for c in df.columns.values:
+        print "val is ", c
         freqs[c] = df[c].value_counts(normalize=True)
-        
+        print "freq is", df[c].value_counts(normalize=True)
+
+    print "hello!"
+
     return freqs
 
 def least_common_trait(df, idx, freqs):
+    '''
+    given a row and a data frame, identify the column with the rarest value relative to the rest of the frame
+    '''
     lowest_name = ""
     lowest_prob = 1
     for f in freqs:
@@ -53,6 +60,9 @@ def least_common_trait(df, idx, freqs):
     return lowest_name
 
 def no_more_splits(f):
+    '''
+    determine whether any of the columns have more than one unique value left
+    '''
     can_split=True
     for k in f:
         if len(k) > 1 :
@@ -61,7 +71,29 @@ def no_more_splits(f):
     
     return can_split
 
+def subset(df, indices, lct, rare_val, working_set):
+    '''
+    returns a subset of indices in the data frame with rare_val in the column 'lct'
+    '''
+    #get the rows matching our criteria
+    values = indices[lct]
+    rows = values[rare_val]
+    
+    print "length of set of matching rows is", len(rows)
+
+    #updat our working set of rows to be only those matching our criteria 
+    working_set = rows.intersection(working_set)
+    
+    print "subset length is", len(working_set)
+
+    ldf = df.iloc(list(working_set))
+    
+    return ldf, working_set
+
 def gather(value):
+    '''
+    a gather function for putting together results from calls to apply_async()
+    '''
     result, n = value
     global g_results
     global g_n_left
@@ -74,50 +106,75 @@ def gather(value):
 
     return
 
-def batch_identify(df, pid, chunks, rows, cutoff=1):
+def batch_identify(df, indices, pid, chunks, rows, cutoff=1):
+    '''
+    groups a batch of identify calls together for longer running jobs
+    '''
     results = []
     nums = []
-    for i in range(1, rows):
-        if (i % chunks) == (pid - 1):
-            r, n = identify(df, i, cutoff)
+    for row in range(1, rows):
+        if (row % chunks) == (pid - 1):
+            r, n = identify(df, indices, row, cutoff)
             results.append(r)
             nums.append(n)
 
     return results, nums
 
-def identify(df, index, cutoff=1):
+def identify(df, indices, row, cutoff=1):
+    '''
+    the core of the algorithm: attempts to uniquely identify a row with as few columns as possible
+    using a greedy search. returns information about the identifying values and whether the row is 
+    uniquely identifiable.
+    '''
+    #dictionary of traits used to identify this row
     trait_dict = {}
+    #local data frame subset of whole df
+    ldf = df
+    #the set of rows remaining
+    working_set = set(range(0, len(df)))
+    
+    print "ldf length is", len(ldf)
 
     #loop until the dataframe is smaller than the cutoff
-    while len(df) > cutoff:
+    while len(ldf) > cutoff:
+        
+        print "Working set length is", len(working_set)
+        
         #get frequencies of values for our current data frame
-        f = col_val_freq(df)
+        f = col_val_freq(ldf)
+
+        print "made it past assignment of f"
 
         #see whether it's even possible to divide the rows in our data frame
         if no_more_splits(f):
+            print "no more splits!!"
             #give up if its not
             break
-        
+
         #get the column name which is most identifying of this row
-        lct = least_common_trait(df, index, f)
+        lct = least_common_trait(ldf, row, f)
         #get the value that is rare
         if lct == "":
-            print "error: lct is ", lct
+            print "lct is empty string"
+            #ignore this- results when all remaining values are null
             break
         else:
-            rare_val = df.loc[index,lct]
-        
+            rare_val = ldf.loc[index,lct]
+            
+            print "lct is ", lct
+
             #grab the probabilities for values of this column
             probability = f[lct]
             #dave the name and probability of the value to our putput dict
             trait_dict[lct] = (rare_val, probability[rare_val])
-            
+
             #reduce the data frame to only those rows with this rare value
-            df = df[df[lct] == rare_val]
+            #old way: 
+            #df = df[df[lct] == rare_val]
+            ldf, working_set = subset(df, indices, lct, rare_val, working_set)
     
     #count how many folks are left in the data frame
-    remaining_examples = len(df)
-    
+    remaining_examples = len(ldf)
     return trait_dict, remaining_examples
 
 def count_above_threshold(n_left, threshold):
@@ -228,6 +285,28 @@ def cols_appearing_together(results):
 
     return s
 
+def get_indices(df, col):
+    '''
+    given a column of a data frame, return a dictionary where the keys are unique values
+    and the values are sets of indices containing that value 
+    '''
+    result_dict = {}
+    
+    for v in df[col].unique():
+        #a boolean list of whether rows have this value
+        bools = df[col] == v
+        #a set of row numbers with this value
+        set_with_val = set()
+        
+        i = 0
+        for b in bools: #iterate over list
+            if b:
+                set_with_val.add(i) 
+            i = i+1
+        result_dict[v] = set_with_val
+    
+    return result_dict, col
+
 def usage():
     print "This script requires 4 arguments:"
     print "identifiability.py -n 4 -c 1 -i infile.csv -o outfile.txt"
@@ -269,6 +348,7 @@ def main(argv):
 
     global g_rows
     g_rows = len(data)
+    indices = {}
     results = []
     num_left = []
     pool = mp.Pool(processes=n_procs)
@@ -276,10 +356,15 @@ def main(argv):
     checkpoint = 100.0
     chunks = int(ceil(g_rows/checkpoint))
 
-    print 'Beginning identifiability checks...'
-    for pid in range(1,chunks):
-        pool.apply_async(batch_identify, args=(data, pid, chunks, g_rows, cutoff, ), callback=gather)
-        
+    print "\nBuilding indices..."
+    for c in data.columns.values:
+        indices[c] = get_indices(data, c)
+
+    print '\nBeginning identifiability checks...'
+    for pid in range(1, chunks):
+        pool.apply_async(batch_identify, args=(data, indices, pid, chunks, g_rows, cutoff, ), callback=gather)
+
+# serial implementation (slooooow):        
 #        d, n = identify(data, i, cutoff)
 #        results.append(d)
 #        num_left.append(n)
