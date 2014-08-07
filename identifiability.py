@@ -24,11 +24,7 @@ def col_val_freq(df):
     freqs = {}
     
     for c in df.columns.values:
-        print "val is ", c
         freqs[c] = df[c].value_counts(normalize=True)
-        print "freq is", df[c].value_counts(normalize=True)
-
-    print "hello!"
 
     return freqs
 
@@ -78,15 +74,11 @@ def subset(df, indices, lct, rare_val, working_set):
     #get the rows matching our criteria
     values = indices[lct]
     rows = values[rare_val]
-    
-    print "length of set of matching rows is", len(rows)
 
     #updat our working set of rows to be only those matching our criteria 
     working_set = rows.intersection(working_set)
     
-    print "subset length is", len(working_set)
-
-    ldf = df.iloc(list(working_set))
+    ldf = df.iloc[list(working_set)]
     
     return ldf, working_set
 
@@ -133,44 +125,37 @@ def identify(df, indices, row, cutoff=1):
     #the set of rows remaining
     working_set = set(range(0, len(df)))
     
-    print "ldf length is", len(ldf)
-
     #loop until the dataframe is smaller than the cutoff
     while len(ldf) > cutoff:
-        
-        print "Working set length is", len(working_set)
         
         #get frequencies of values for our current data frame
         f = col_val_freq(ldf)
 
-        print "made it past assignment of f"
-
         #see whether it's even possible to divide the rows in our data frame
         if no_more_splits(f):
-            print "no more splits!!"
-            #give up if its not
+            #give up
             break
 
         #get the column name which is most identifying of this row
         lct = least_common_trait(ldf, row, f)
+
         #get the value that is rare
         if lct == "":
-            print "lct is empty string"
             #ignore this- results when all remaining values are null
             break
         else:
-            rare_val = ldf.loc[index,lct]
-            
-            print "lct is ", lct
+            rare_val = ldf.loc[row, lct]
 
             #grab the probabilities for values of this column
             probability = f[lct]
-            #dave the name and probability of the value to our putput dict
+
+            #save the name and probability of the value to our putput dict
             trait_dict[lct] = (rare_val, probability[rare_val])
 
             #reduce the data frame to only those rows with this rare value
-            #old way: 
+            #old, slow way: 
             #df = df[df[lct] == rare_val]
+            #new, hopefully faster way
             ldf, working_set = subset(df, indices, lct, rare_val, working_set)
     
     #count how many folks are left in the data frame
@@ -305,7 +290,7 @@ def get_indices(df, col):
             i = i+1
         result_dict[v] = set_with_val
     
-    return result_dict, col
+    return result_dict
 
 def usage():
     print "This script requires 4 arguments:"
